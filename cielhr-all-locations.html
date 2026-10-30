@@ -161,12 +161,55 @@
       document.querySelectorAll('.branchora-city-btn').forEach(b => b.classList.remove('active'));
       const allBtn = document.getElementById('branchoraBtnAll');
       if (allBtn) allBtn.classList.add('active');
-      branchoraApplyFilter();
+      branchoraApplyFilter(); 
     });
   }
   
   branchoraApplyFilter();
 })();
 </script>
+
+<!-- Do not remove this  -->
+<script>
+(function () {
+  const content = document.querySelector(".branchora-container");
+  if (!content) return;
+
+  function sendHeight() {
+    const bottom =
+      content.getBoundingClientRect().bottom + window.scrollY;
+
+    const margin =
+      parseFloat(getComputedStyle(document.body).marginBottom) || 0;
+
+    const height = Math.ceil(bottom + margin + 2);
+
+    window.parent.postMessage(
+      {
+        type: "CIEL_OFFICE_HEIGHT",
+        height: height
+      },
+      "https://cielhr.com"
+    );
+  }
+
+  function updateHeight() {
+    requestAnimationFrame(sendHeight);
+  }
+
+  const observer = new ResizeObserver(updateHeight);
+  observer.observe(content);
+
+  window.addEventListener("load", updateHeight);
+  window.addEventListener("resize", updateHeight);
+
+  if (document.fonts) {
+    document.fonts.ready.then(updateHeight);
+  }
+
+  updateHeight();
+})();
+</script>
+<!-- Do not remove this  -->
 </body>
 </html>
