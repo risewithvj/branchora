@@ -63,6 +63,50 @@
 .branchora-no-results.show { display: block; }
 .branchora-no-results h3 { font-size: 18px; font-weight: 700; color: #374151; margin-bottom: 8px; }
 @media (max-width: 768px) { .branchora-grid { grid-template-columns: 1fr; } .branchora-header h1 { font-size: 28px; } }
+
+/* Responsive layout: phones, small handsets, tablets and embedded browsers */
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  overflow-x: hidden;
+}
+.branchora-container, .branchora-wrapper {
+  box-sizing: border-box;
+  width: 100%;
+}
+.branchora-card-head-info { min-width: 0; }
+.branchora-card-head-info h3 { overflow-wrap: anywhere; }
+.branchora-search-input { box-sizing: border-box; max-width: 100%; }
+@media (max-width: 767px) {
+  .branchora-wrapper { padding: 12px 14px 24px; }
+  .branchora-header { padding: 22px 8px 20px; }
+  .branchora-header h1 { font-size: 26px; line-height: 1.25; }
+  .branchora-header p { font-size: 14px; }
+  .branchora-search-wrap { width: 100%; max-width: 100%; margin-bottom: 24px; }
+  /* 16px prevents focus zoom on iPhones. */
+  .branchora-search-input { width: 100%; font-size: 16px; }
+  .branchora-filter-wrap { margin-bottom: 24px; }
+  .branchora-filter-btns { gap: 8px; }
+  .branchora-city-btn { padding: 8px 12px; font-size: 12px; }
+  .branchora-grid { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+  .branchora-card { min-width: 0; }
+  .branchora-card-head { padding: 16px; gap: 12px; }
+  .branchora-card-logo { width: 42px; height: 42px; }
+  .branchora-card-head-info h3 { font-size: 14px; }
+  .branchora-card-body { padding: 14px 16px; }
+  .branchora-text { font-size: 13px; }
+  .branchora-card-foot { padding: 12px 16px 14px; }
+}
+@media (max-width: 359px) {
+  .branchora-wrapper { padding-left: 10px; padding-right: 10px; }
+  .branchora-header h1 { font-size: 24px; }
+  .branchora-city-btn { padding: 7px 10px; }
+  .branchora-card-head { padding: 14px; }
+}
+@media (hover: none) {
+  .branchora-card:hover { transform: none; }
+}
 </style>
 </head>
 <body>
@@ -169,47 +213,68 @@
 })();
 </script>
 
-<!-- Do not remove this  -->
+<!-- Keep this script immediately before closing body tag: iframe auto-sizing -->
 <script>
 (function () {
-  const content = document.querySelector(".branchora-container");
-  if (!content) return;
+  const content = document.querySelector('.branchora-container');
+  if (!content || window.parent === window) return;
+
+  let queued = false;
+  let lastHeight = 0;
 
   function sendHeight() {
-    const bottom =
-      content.getBoundingClientRect().bottom + window.scrollY;
-
-    const margin =
-      parseFloat(getComputedStyle(document.body).marginBottom) || 0;
-
-    const height = Math.ceil(bottom + margin + 2);
-
+    queued = false;
+    // Measure content itself, NOT document.scrollHeight: scrollHeight can
+    // inherit the iframe viewport size and prevent shrinking after filtering.
+    const bottom = content.getBoundingClientRect().bottom + window.scrollY;
+    const height = Math.max(1, Math.ceil(bottom + 8));
+    if (height === lastHeight) return;
+    lastHeight = height;
     window.parent.postMessage(
-      {
-        type: "CIEL_OFFICE_HEIGHT",
-        height: height
-      },
-      "https://cielhr.com"
+      { type: 'CIEL_OFFICE_HEIGHT', height: height },
+      'https://cielhr.com'
     );
   }
 
-  function updateHeight() {
+  function updateHeight(force) {
+    if (force === true) lastHeight = 0;
+    if (queued) return;
+    queued = true;
     requestAnimationFrame(sendHeight);
   }
 
-  const observer = new ResizeObserver(updateHeight);
-  observer.observe(content);
-
-  window.addEventListener("load", updateHeight);
-  window.addEventListener("resize", updateHeight);
-
+  if ('ResizeObserver' in window) {
+    new ResizeObserver(updateHeight).observe(content);
+  }
+  window.addEventListener('load', function () { updateHeight(true); });
+  window.addEventListener('pageshow', function () { updateHeight(true); });
+  window.addEventListener('resize', updateHeight);
+  window.addEventListener('orientationchange', function () { updateHeight(true); });
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', updateHeight);
+  }
   if (document.fonts) {
-    document.fonts.ready.then(updateHeight);
+    document.fonts.ready.then(function () { updateHeight(true); });
   }
 
-  updateHeight();
+  // Update after city-chip and search-result visibility changes.
+  const grid = document.getElementById('branchoraGrid');
+  if (grid && 'MutationObserver' in window) {
+    new MutationObserver(updateHeight).observe(grid, {
+      subtree: true, attributes: true, attributeFilter: ['class']
+    });
+  }
+
+  // Parent page can explicitly re-request height after loading/resizing.
+  window.addEventListener('message', function (event) {
+    if (event.source !== window.parent || event.origin !== 'https://cielhr.com') return;
+    if (event.data && event.data.type === 'CIEL_OFFICE_MEASURE') {
+      updateHeight(true);
+    }
+  });
+
+  updateHeight(true);
 })();
 </script>
-<!-- Do not remove this  -->
 </body>
 </html>
